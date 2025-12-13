@@ -1,15 +1,11 @@
 {
   "name": "servicenow-mcp",
   "version": "1.0.0",
-  "description": "ServiceNow MCP server exposed via SSE",
-  "transport": {
-    "type": "sse",
-    "url": "http://localhost:8080/sse"
-  },
-  "commands": {
-    "start": {
-      "command": "python3",
-      "args": ["main.py"]
-    }
+  "description": "ServiceNow MCP Server",
+  "transport": "sse",
+  "server": {
+    "command": "python",
+    "args": ["-m", "servicenow_mcp.cli"],
+    "env": {}
   }
 }
