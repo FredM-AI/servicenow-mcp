@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Point d'entrée pour démarrer le serveur MCP ServiceNow en mode SSE
+Point d'entrée pour démarrer le serveur MCP ServiceNow en mode SSE 
 """
 import os
 import uvicorn
