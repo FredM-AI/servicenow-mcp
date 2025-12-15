@@ -9,6 +9,9 @@ COPY src/ ./src/
 # Install the package in development mode
 RUN pip install -e .
 
+# Installer PyYAML explicitement pour éviter ModuleNotFoundError: No module named 'yaml'
+RUN pip install pyyaml
+
 # Expose the port the app runs on
 EXPOSE 8080
 
