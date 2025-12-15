@@ -3,7 +3,7 @@ ServiceNow MCP Server
 
 This module provides the main implementation of the ServiceNow MCP server.
 """
-
+# mcp.run(transport='sse')
 import argparse
 import os
 from typing import Dict, Union
