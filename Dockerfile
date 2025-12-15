@@ -6,15 +6,17 @@ WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
 
+# Mettre à jour pip et installer le paquet PyYAML nécessaire avant l'installation en mode editable
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install pyyaml
+
 # Install the package in development mode
 RUN pip install -e .
-
-# Installer PyYAML explicitement pour éviter ModuleNotFoundError: No module named 'yaml'
-RUN pip install pyyaml
 
 # Expose the port the app runs on
 EXPOSE 8080
 
 # Command to run the application using the provided CLI
 # CMD ["servicenow-mcp-sse", "--host=0.0.0.0", "--port=8080"] 
-CMD ["python", "-m", "servicenow_mcp.server_sse"]
+# CMD ["python", "-m", "servicenow_mcp.server_sse"]
+CMD ["python", "main.py"]
