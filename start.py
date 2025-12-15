@@ -35,5 +35,5 @@ def main():
 if __name__ == "__main__":
     main()
     
-print(f"Starting Uvicorn on 0.0.0.0:{PORT}") # Ligne de log ajoutée
-uvicorn.run(app, host="0.0.0.0", port=PORT)
+#print(f"Starting Uvicorn on 0.0.0.0:{PORT}") # Ligne de log ajoutée
+#uvicorn.run(app, host="0.0.0.0", port=PORT)
