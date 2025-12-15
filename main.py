@@ -17,15 +17,18 @@
 #    print(f"Error during server start: {e}")
 #    sys.exit(1)
     
-# main.py (Version Corrigée)
+# main.py (Version Corrigée 2.0)
 
-# Importe la fonction main() que nous avons définie dans server_sse.py
-# Le chemin doit correspondre à la structure de votre projet : src/servicenow_mcp/server_sse.py
+import sys
+import os
+
+# [MODIFICATION CRITIQUE] Ajoute le répertoire 'src' au chemin de recherche des modules (PYTHONPATH)
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+# Maintenant l'importation devrait fonctionner
 from servicenow_mcp.server_sse import main 
 
 # Le script `main.py` appelle directement la fonction principale du serveur
 if __name__ == "__main__":
-    # La fonction main() dans server_sse.py gère déjà la récupération du port
-    # et le lancement d'uvicorn.
     print("Starting ServiceNow MCP Server directly via internal main() function.")
     main()
