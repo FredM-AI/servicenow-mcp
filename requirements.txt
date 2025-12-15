@@ -1,1 +1,15 @@
--e
+# Noyau du protocole MCP
+mcp>=1.0.0
+
+# Client HTTP asynchrone pour appeler l'API ServiceNow
+httpx>=0.27.0
+
+# Gestion des variables d'environnement (pour Alpic)
+python-dotenv>=1.0.1
+
+# Validation des données (souvent utilisé par les serveurs MCP Python)
+pydantic>=2.0.0
+
+# Serveur ASGI pour le transport SSE (requis pour l'hébergement cloud sur Alpic)
+uvicorn>=0.20.0
+fastapi>=0.100.0
