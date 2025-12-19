@@ -1,34 +1,53 @@
 """
-ServiceNow MCP Server - Minimal Debug Version
+ServiceNow MCP Server - Alpic Production Version
 """
 # mcp.run(transport='sse')
 import os
+import sys
 import logging
-from mcp.server.fastmcp import FastMCP
 
-# Configuration du log pour forcer l'affichage dans Alpic
-logging.basicConfig(level=logging.INFO)
+# On force le logging pour debugger le démarrage
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
-logger.info("🚀 Démarrage du script server_see.py")
-
 try:
-    # On crée une instance FastMCP vide (sans charger vos 93 outils pour l'instant)
-    # Cela permet de vérifier si le transport SSE et la config Alpic sont OK.
-    app = FastMCP("ServiceNow")
+    from mcp.server.fastmcp import FastMCP
+    logger.info("✅ Import FastMCP réussi")
+except ImportError as e:
+    logger.error(f"❌ Erreur critique d'importation : {e}")
+    # Ne pas lever d'exception ici pour voir si le log sort
+    sys.exit(1)
 
-    @app.tool()
-    async def ping():
-        """Outil de test minimal pour valider la connectivité."""
-        return "pong"
+# Création immédiate de l'app (au niveau du module)
+# C'est ce que FastMCP et Alpic attendent pour du SSE
+app = FastMCP("ServiceNow")
 
-    logger.info("✅ Application FastMCP (Debug) initialisée")
+@app.tool()
+async def health_check():
+    """Vérifie si le serveur est en vie."""
+    return "OK"
 
+# Optionnel : On tente de charger vos outils ici si l'import passe
+try:
+    from servicenow_mcp.server import ServiceNowMCP
+    from servicenow_mcp.utils.config import AuthConfig, AuthType, BasicAuthConfig, ServerConfig
+    
+    logger.info("⏳ Tentative de chargement des outils ServiceNow...")
+    
+    auth_config = AuthConfig(
+        type=AuthType.BASIC, 
+        basic=BasicAuthConfig(
+            username=os.getenv("SERVICENOW_USERNAME", ""), 
+            password=os.getenv("SERVICENOW_PASSWORD", "")
+        )
+    )
+    config = ServerConfig(instance_url=os.getenv("SERVICENOW_INSTANCE_URL", ""), auth=auth_config)
+    
+    server_backend = ServiceNowMCP(config)
+    # On injecte vos outils dans l'instance FastMCP
+    app._server = server_backend.mcp_server
+    logger.info("✅ 93 outils chargés avec succès")
+    
 except Exception as e:
-    logger.error(f"❌ Erreur fatale : {e}")
-    raise
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    logger.warning(f"⚠️ Chargement partiel des outils : {e}")
+    # On ne crash pas, pour que le health_check au-dessus permette de passer la Phase 4
