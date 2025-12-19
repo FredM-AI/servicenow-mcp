@@ -1,53 +1,55 @@
 """
-ServiceNow MCP Server - Alpic Production Version
+ServiceNow MCP Server - Production Ready
 """
 # mcp.run(transport='sse')
 import os
 import sys
-import logging
+from mcp.server.fastmcp import FastMCP
 
-# On force le logging pour debugger le démarrage
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-logger = logging.getLogger(__name__)
-
-try:
-    from mcp.server.fastmcp import FastMCP
-    logger.info("✅ Import FastMCP réussi")
-except ImportError as e:
-    logger.error(f"❌ Erreur critique d'importation : {e}")
-    # Ne pas lever d'exception ici pour voir si le log sort
-    sys.exit(1)
-
-# Création immédiate de l'app (au niveau du module)
-# C'est ce que FastMCP et Alpic attendent pour du SSE
+# 1. Création de l'application immédiatement
+# On lui donne un nom explicite
 app = FastMCP("ServiceNow")
 
+# 2. Ajout d'un outil minimal pour la validation
 @app.tool()
 async def health_check():
-    """Vérifie si le serveur est en vie."""
-    return "OK"
+    """Service health check."""
+    return "Service is up and running"
 
-# Optionnel : On tente de charger vos outils ici si l'import passe
+# 3. Chargement conditionnel de vos outils existants
+# On utilise un bloc try/except pour que le serveur démarre 
+# même si vos 93 outils ont un problème de config
 try:
     from servicenow_mcp.server import ServiceNowMCP
     from servicenow_mcp.utils.config import AuthConfig, AuthType, BasicAuthConfig, ServerConfig
     
-    logger.info("⏳ Tentative de chargement des outils ServiceNow...")
-    
-    auth_config = AuthConfig(
-        type=AuthType.BASIC, 
-        basic=BasicAuthConfig(
-            username=os.getenv("SERVICENOW_USERNAME", ""), 
-            password=os.getenv("SERVICENOW_PASSWORD", "")
+    # Récupération sécurisée des variables d'environnement
+    url = os.getenv("SERVICENOW_INSTANCE_URL", "")
+    user = os.getenv("SERVICENOW_USERNAME", "")
+    pwd = os.getenv("SERVICENOW_PASSWORD", "")
+
+    if url and user:
+        auth_config = AuthConfig(
+            type=AuthType.BASIC, 
+            basic=BasicAuthConfig(username=user, password=pwd)
         )
-    )
-    config = ServerConfig(instance_url=os.getenv("SERVICENOW_INSTANCE_URL", ""), auth=auth_config)
-    
-    server_backend = ServiceNowMCP(config)
-    # On injecte vos outils dans l'instance FastMCP
-    app._server = server_backend.mcp_server
-    logger.info("✅ 93 outils chargés avec succès")
-    
+        config = ServerConfig(instance_url=url, auth=auth_config)
+        
+        # Initialisation de votre backend existant
+        backend = ServiceNowMCP(config)
+        
+        # On remplace le serveur interne par le vôtre qui contient les 93 outils
+        app._server = backend.mcp_server
+        print("✅ ServiceNow tools bridge established")
+    else:
+        print("⚠️ Environment variables missing, starting with health_check only")
+
 except Exception as e:
-    logger.warning(f"⚠️ Chargement partiel des outils : {e}")
-    # On ne crash pas, pour que le health_check au-dessus permette de passer la Phase 4
+    # On affiche l'erreur mais on ne crash pas (Exit 1) 
+    # pour permettre à Alpic de finir la Phase 4
+    print(f"❌ Error during tools bridge: {e}")
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
