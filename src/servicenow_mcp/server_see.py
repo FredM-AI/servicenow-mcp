@@ -1,44 +1,32 @@
 """
-ServiceNow MCP Server - FastMCP Clean Version
+ServiceNow MCP Server - Minimal Debug Version
 """
 # mcp.run(transport='sse')
 import os
+import logging
 from mcp.server.fastmcp import FastMCP
-from servicenow_mcp.server import ServiceNowMCP
-from servicenow_mcp.utils.config import AuthConfig, AuthType, BasicAuthConfig, ServerConfig
-from dotenv import load_dotenv
 
-load_dotenv()
+# Configuration du log pour forcer l'affichage dans Alpic
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def create_mcp_app():
-    # 1. Configuration ServiceNow
-    auth_config = AuthConfig(
-        type=AuthType.BASIC, 
-        basic=BasicAuthConfig(
-            username=os.getenv("SERVICENOW_USERNAME", ""), 
-            password=os.getenv("SERVICENOW_PASSWORD", "")
-        )
-    )
-    config = ServerConfig(
-        instance_url=os.getenv("SERVICENOW_INSTANCE_URL", ""), 
-        auth=auth_config
-    )
+logger.info("🚀 Démarrage du script server_see.py")
 
-    # 2. On charge vos outils existants (les 93 outils)
-    # Important : ServiceNowMCP doit être instancié avant de créer l'app FastMCP
-    service_now_backend = ServiceNowMCP(config)
+try:
+    # On crée une instance FastMCP vide (sans charger vos 93 outils pour l'instant)
+    # Cela permet de vérifier si le transport SSE et la config Alpic sont OK.
+    app = FastMCP("ServiceNow")
 
-    # 3. Création de l'application FastMCP demandée par Alpic
-    mcp = FastMCP("ServiceNow")
+    @app.tool()
+    async def ping():
+        """Outil de test minimal pour valider la connectivité."""
+        return "pong"
 
-    # 4. Bridge : On injecte votre serveur initialisé dans FastMCP
-    # Cela évite de devoir ré-enregistrer chaque outil manuellement
-    mcp._server = service_now_backend.mcp_server
-    
-    return mcp
+    logger.info("✅ Application FastMCP (Debug) initialisée")
 
-# L'objet 'app' est ce qu'Alpic va chercher via Uvicorn
-app = create_mcp_app()
+except Exception as e:
+    logger.error(f"❌ Erreur fatale : {e}")
+    raise
 
 if __name__ == "__main__":
     import uvicorn
