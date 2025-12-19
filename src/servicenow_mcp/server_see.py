@@ -1,81 +1,45 @@
 """
-ServiceNow MCP Server - FastMCP Starlette Version
+ServiceNow MCP Server - Official FastMCP SSE Style
 """
 # mcp.run(transport='sse')  <-- Indice crucial pour le scanner Alpic
-import argparse
 import os
-import uvicorn
-from typing import Dict, Union
-
 from dotenv import load_dotenv
-from mcp.server import Server
 from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport # Pour la détection Alpic
-from starlette.routing import Route, Mount
-from starlette.applications import Starlette
-
 from servicenow_mcp.server import ServiceNowMCP
 from servicenow_mcp.utils.config import AuthConfig, AuthType, BasicAuthConfig, ServerConfig
 
-def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
-    """
-    Configure FastMCP et expose son application Starlette interne.
-    """
-    # 1. Initialisation de FastMCP
-    fast_mcp = FastMCP("ServiceNow")
-    
-    # 2. Bridge : On injecte votre serveur avec ses 93 outils
-    fast_mcp._server = mcp_server
+load_dotenv()
 
-    # 3. Récupération de l'application Starlette interne de FastMCP
-    # Note: Dans le SDK MCP, c'est 'starlette_app' et non '.app'
-    app = fast_mcp.starlette_app
-
-    # 4. On s'assure que les routes attendues par Alpic sont là (pour la détection)
-    # Même si FastMCP les gère, les déclarer ici aide le scanner.
-    _detector = SseServerTransport("/messages/")
-    
-    return app
-
-class ServiceNowSSEMCP(ServiceNowMCP):
-    def __init__(self, config: Union[Dict, ServerConfig]):
-        super().__init__(config)
-
-    def start(self, host: str = "0.0.0.0", port: int = 8080):
-        """
-        Lancement manuel de l'application via Uvicorn pour contrôler le port.
-        """
-        app = create_starlette_app(self.mcp_server, debug=True)
-        
-        print(f"🚀 Starting ServiceNow MCP Server on {host}:{port}")
-        
-        # On utilise uvicorn directement sur l'app interne de FastMCP
-        uvicorn.run(app, host=host, port=port)
-
-def create_servicenow_mcp(instance_url: str, username: str, password: str):
-    auth_config = AuthConfig(
-        type=AuthType.BASIC, basic=BasicAuthConfig(username=username, password=password)
+# 1. Initialisation de la config ServiceNow
+auth_config = AuthConfig(
+    type=AuthType.BASIC, 
+    basic=BasicAuthConfig(
+        username=os.getenv("SERVICENOW_USERNAME"), 
+        password=os.getenv("SERVICENOW_PASSWORD")
     )
-    config = ServerConfig(instance_url=instance_url, auth=auth_config)
-    return ServiceNowSSEMCP(config)
+)
+config = ServerConfig(instance_url=os.getenv("SERVICENOW_INSTANCE_URL"), auth=auth_config)
 
-def main():
-    load_dotenv()
-    parser = argparse.ArgumentParser(description="Run ServiceNow MCP server")
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8080)
-    args = parser.parse_args()
+# 2. On instancie votre serveur existant pour charger les outils
+# (C'est ici que les 93 outils sont enregistrés dans server_instance.mcp_server)
+print("⏳ Loading ServiceNow MCP Tools...")
+server_instance = ServiceNowMCP(config)
 
-    # On utilise bien le port imposé par Alpic
-    server_port = int(os.getenv("PORT", args.port))
+# 3. On crée l'interface FastMCP
+# On lui donne le même nom que votre serveur
+mcp = FastMCP("ServiceNow")
 
-    server = create_servicenow_mcp(
-        instance_url=os.getenv("SERVICENOW_INSTANCE_URL"),
-        username=os.getenv("SERVICENOW_USERNAME"),
-        password=os.getenv("SERVICENOW_PASSWORD"),
-    )
-    
-    server.start(host=args.host, port=server_port)
+# 4. BRIDGE CRUCIAL : On remplace le serveur interne de FastMCP par le vôtre 
+# qui contient déjà tous les outils chargés.
+mcp._server = server_instance.mcp_server
+
+# 5. Point d'entrée pour Alpic/Uvicorn
+# FastMCP est compatible ASGI, donc on peut l'exposer directement.
+app = mcp
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    port = int(os.getenv("PORT", 8080))
+    print(f"🚀 Starting FastMCP Server on port {port}")
+    # On lance l'objet 'mcp' directement car il est 'callable' (ASGI app)
+    uvicorn.run("server_see:app", host="0.0.0.0", port=port, factory=False)
